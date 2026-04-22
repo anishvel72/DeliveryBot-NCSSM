@@ -1,60 +1,83 @@
-import Jetson.GPIO as GPIO
+import gpiod
 import time
+import os
 
-# Pin assignments
-RPWM = 2
-LPWM = 1
-R_EN = 38
-L_EN = 37
+# Hardware PWM sysfs paths
+PWM_CHIP_RPWM = 2   # pin 32, pwm7
+PWM_CHAN_RPWM = 0
+PWM_CHIP_LPWM = 1   # pin 33, pwm5
+PWM_CHAN_LPWM = 0
 
-# Setup
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(RPWM, GPIO.OUT)
-GPIO.setup(LPWM, GPIO.OUT)
-GPIO.setup(R_EN, GPIO.OUT)
-GPIO.setup(L_EN, GPIO.OUT)
+PERIOD_NS = 1_000_000  # 1kHz
 
-# Create PWM instances (frequency in Hz)
-rpwm_pwm = GPIO.PWM(RPWM, 1000)
-lpwm_pwm = GPIO.PWM(LPWM, 1000)
-rpwm_pwm.start(0)
-lpwm_pwm.start(0)
+# EN pins via libgpiod
+R_EN_LINE = 38
+L_EN_LINE = 37
+
+def pwm_path(chip, channel):
+    return f"/sys/class/pwm/pwmchip{chip}/pwm{channel}"
+
+def pwm_export(chip, channel):
+    export_path = f"/sys/class/pwm/pwmchip{chip}/export"
+    if not os.path.exists(pwm_path(chip, channel)):
+        with open(export_path, 'w') as f:
+            f.write(str(channel))
+    time.sleep(0.1)
+
+def pwm_write(chip, channel, period_ns, duty_ns, enable=1):
+    base = pwm_path(chip, channel)
+    with open(f"{base}/period", 'w') as f:
+        f.write(str(period_ns))
+    with open(f"{base}/duty_cycle", 'w') as f:
+        f.write(str(duty_ns))
+    with open(f"{base}/enable", 'w') as f:
+        f.write(str(enable))
+
+def pwm_set_duty(chip, channel, duty_fraction):
+    duty_ns = int(PERIOD_NS * max(0.0, min(1.0, duty_fraction)))
+    base = pwm_path(chip, channel)
+    with open(f"{base}/duty_cycle", 'w') as f:
+        f.write(str(duty_ns))
+
+# Setup EN pins
+chip = gpiod.Chip('gpiochip0')
+r_en = chip.get_line(R_EN_LINE)
+l_en = chip.get_line(L_EN_LINE)
+r_en.request(consumer="motor", type=gpiod.LINE_REQ_DIR_OUT)
+l_en.request(consumer="motor", type=gpiod.LINE_REQ_DIR_OUT)
+
+# Export and init PWM
+pwm_export(PWM_CHIP_RPWM, PWM_CHAN_RPWM)
+pwm_export(PWM_CHIP_LPWM, PWM_CHAN_LPWM)
+pwm_write(PWM_CHIP_RPWM, PWM_CHAN_RPWM, PERIOD_NS, 0, enable=1)
+pwm_write(PWM_CHIP_LPWM, PWM_CHAN_LPWM, PERIOD_NS, 0, enable=1)
 
 def spin_motor(voltage, ms, direction="forward"):
-    """
-    Spins the motor at a given voltage level for a set duration.
+    duty = max(0.0, min(1.0, voltage))
 
-    Args:
-        voltage (float): 0.0 to 1.0 — represents duty cycle (% of max voltage)
-        ms (int): Duration in milliseconds to spin
-        direction (str): "forward" or "backward"
-    """
-    duty_cycle = max(0.0, min(1.0, voltage)) * 100  # clamp and scale to 0-100
-
-    # Enable both channels
-    GPIO.output(R_EN, GPIO.HIGH)
-    GPIO.output(L_EN, GPIO.HIGH)
+    r_en.set_value(1)
+    l_en.set_value(1)
 
     if direction == "forward":
-        rpwm_pwm.ChangeDutyCycle(duty_cycle)
-        lpwm_pwm.ChangeDutyCycle(0)
+        pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, duty)
+        pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, 0)
     elif direction == "backward":
-        rpwm_pwm.ChangeDutyCycle(0)
-        lpwm_pwm.ChangeDutyCycle(duty_cycle)
+        pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, 0)
+        pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, duty)
 
-    time.sleep(ms / 1000.0)  # convert ms to seconds
+    time.sleep(ms / 1000.0)
 
-    # Stop motor
-    rpwm_pwm.ChangeDutyCycle(0)
-    lpwm_pwm.ChangeDutyCycle(0)
-    GPIO.output(R_EN, GPIO.LOW)
-    GPIO.output(L_EN, GPIO.LOW)
-
+    pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, 0)
+    pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, 0)
+    r_en.set_value(0)
+    l_en.set_value(0)
 
 # --- Execute ---
 spin_motor(voltage=0.75, ms=2000, direction="forward")
 
 # Cleanup
-rpwm_pwm.stop()
-lpwm_pwm.stop()
-GPIO.cleanup()
+pwm_write(PWM_CHIP_RPWM, PWM_CHAN_RPWM, PERIOD_NS, 0, enable=0)
+pwm_write(PWM_CHIP_LPWM, PWM_CHAN_LPWM, PERIOD_NS, 0, enable=0)
+r_en.set_value(0)
+l_en.set_value(0)
+chip.close()
