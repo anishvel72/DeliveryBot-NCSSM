@@ -1,10 +1,6 @@
-OSError: [Errno 16] Device or resource busy
-
-During handling of the above exception, another exception occurred:
-
 Traceback (most recent call last):
-  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 56, in <module>
-    pwm_export(PWM_CHIP_LPWM, PWM_CHAN_LPWM)
-  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 23, in pwm_export
-    with open(export_path, 'w') as f:
-OSError: [Errno 16] Device or resource busy
+  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 61, in <module>
+    pwm_write(PWM_CHIP_LPWM, PWM_CHAN_LPWM, PERIOD_NS, 0, enable=1)
+  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 32, in pwm_write
+    with open(f"{base}/period", 'w') as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/sys/class/pwm/pwmchip1/pwm0/period'
