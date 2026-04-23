@@ -20,8 +20,11 @@ def pwm_path(chip, channel):
 def pwm_export(chip, channel):
     export_path = f"/sys/class/pwm/pwmchip{chip}/export"
     if not os.path.exists(pwm_path(chip, channel)):
-        with open(export_path, 'w') as f:
-            f.write(str(channel))
+        try:
+            with open(export_path, 'w') as f:
+                f.write(str(channel))
+        except OSError:
+            pass  # already exported, that's fine
     time.sleep(0.1)
 
 def pwm_write(chip, channel, period_ns, duty_ns, enable=1):
