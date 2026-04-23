@@ -1,8 +1,10 @@
-total 0
-drwxr-xr-x  2 root root 0 Mar 24 09:52 .
-drwxr-xr-x 96 root root 0 Mar 24 09:52 ..
-lrwxrwxrwx  1 root root 0 Mar 24 09:52 pwmchip0 -> ../../devices/platform/bus@0/3280000.pwm/pwm/pwmchip0
-lrwxrwxrwx  1 root root 0 Mar 24 09:52 pwmchip1 -> ../../devices/platform/bus@0/32a0000.pwm/pwm/pwmchip1
-lrwxrwxrwx  1 root root 0 Mar 24 09:52 pwmchip2 -> ../../devices/platform/bus@0/32c0000.pwm/pwm/pwmchip2
-lrwxrwxrwx  1 root root 0 Mar 24 09:52 pwmchip3 -> ../../devices/platform/bus@0/32e0000.pwm/pwm/pwmchip3
-lrwxrwxrwx  1 root root 0 Apr 22 19:35 pwmchip4 -> ../../devices/platform/bus@0/39c0000.tachometer/pwm/pwmchip4
+OSError: [Errno 16] Device or resource busy
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 56, in <module>
+    pwm_export(PWM_CHIP_LPWM, PWM_CHAN_LPWM)
+  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 23, in pwm_export
+    with open(export_path, 'w') as f:
+OSError: [Errno 16] Device or resource busy
