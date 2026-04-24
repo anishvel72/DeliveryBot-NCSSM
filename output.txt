@@ -1,30 +1,10 @@
-/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio_cdev.py:373: UserWarning: Could not open /dev/mem for pinmux check. If you want pinmux checks, make sure your user has permissions to read /dev/mem and that it exists. Error: [Errno 1] Operation not permitted: '/dev/mem'
-  warnings.warn('Could not open /dev/mem for pinmux check. If you want pinmux checks, make sure your user has permissions to read /dev/mem and that it exists. Error: ' + str(e))
-/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py:561: RuntimeWarning: This channel is already in use, continuing anyway. Use GPIO.setwarnings(False) to disable warnings
-  warnings.warn(
-OSError: [Errno 9] Bad file descriptor
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/home/ubuntu/Documents/DeliveryBot-NCSSM/motor_control.py", line 72, in <module>
-    GPIO.cleanup()
-  File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 352, in cleanup
-    _cleanup_all()
-  File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 244, in _cleanup_all
-    _cleanup_one(ch_info)
-  File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 219, in _cleanup_one
-    _unexport_pwm(ch_info)
-  File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 172, in _unexport_pwm
-    ch_info.f_duty_cycle.close()
-OSError: [Errno 9] Bad file descriptor
-Exception ignored in: <function PWM.__del__ at 0xffff9d502050>
+Exception ignored in: <function PWM.__del__ at 0xffffaf976050>
 Traceback (most recent call last):
   File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 580, in __del__
   File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 596, in stop
   File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 209, in _disable_pwm
 NameError: name 'open' is not defined
-Exception ignored in: <function PWM.__del__ at 0xffff9d502050>
+Exception ignored in: <function PWM.__del__ at 0xffffaf976050>
 Traceback (most recent call last):
   File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 580, in __del__
   File "/home/ubuntu/.local/lib/python3.10/site-packages/Jetson/GPIO/gpio.py", line 596, in stop
