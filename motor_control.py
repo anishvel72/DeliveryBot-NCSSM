@@ -1,92 +1,70 @@
-import gpiod
+import Jetson.GPIO as GPIO
 import time
-import os
 
-# Hardware PWM sysfs paths
-PWM_CHIP_RPWM = 2   # pin 32, pwm7
-PWM_CHAN_RPWM = 0
-PWM_CHIP_LPWM = 1   # pin 33, pwm5
-PWM_CHAN_LPWM = 0
+# Pin assignments
+GND_PIN = 39      # Ground (just for reference)
+VCC_PIN = 4       # 5V (just for reference)
 
-PERIOD_NS = 1_000_000  # 1kHz
+R_EN = 38         # Right enable
+L_EN = 37         # Left enable
+RPWM = 33         # Right PWM
+LPWM = 15         # Left PWM
 
-# EN pin numbers
-R_EN_LINE = 38
-L_EN_LINE = 37
+# GPIO setup
+GPIO.setmode(GPIO.BOARD)  # Use physical pin numbers
 
-def pwm_path(chip, channel):
-    return f"/sys/class/pwm/pwmchip{chip}/pwm{channel}"
+# Set up EN pins as output
+GPIO.setup(R_EN, GPIO.OUT)
+GPIO.setup(L_EN, GPIO.OUT)
 
-def pwm_export(chip, channel):
-    export_path = f"/sys/class/pwm/pwmchip{chip}/export"
-    if not os.path.exists(pwm_path(chip, channel)):
-        try:
-            with open(export_path, 'w') as f:
-                f.write(str(channel))
-        except OSError:
-            pass  # already exported, that's fine
-    time.sleep(0.1)
+# Set up PWM pins as output
+GPIO.setup(RPWM, GPIO.OUT)
+GPIO.setup(LPWM, GPIO.OUT)
 
-def pwm_write(chip, channel, period_ns, duty_ns, enable=1):
-    base = pwm_path(chip, channel)
-    with open(f"{base}/period", 'w') as f:
-        f.write(str(period_ns))
-    with open(f"{base}/duty_cycle", 'w') as f:
-        f.write(str(duty_ns))
-    with open(f"{base}/enable", 'w') as f:
-        f.write(str(enable))
+# Initialize PWM
+pwm_freq = 1000  # 1 kHz is typical for DC motors
+rpwm_pwm = GPIO.PWM(RPWM, pwm_freq)
+lpwm_pwm = GPIO.PWM(LPWM, pwm_freq)
 
-def pwm_set_duty(chip, channel, duty_fraction):
-    duty_ns = int(PERIOD_NS * max(0.0, min(1.0, duty_fraction)))
-    base = pwm_path(chip, channel)
-    with open(f"{base}/duty_cycle", 'w') as f:
-        f.write(str(duty_ns))
+# Start PWM at 0 duty cycle
+rpwm_pwm.start(0)
+lpwm_pwm.start(0)
 
-# Setup EN pins (gpiod v2 API)
-r_en = gpiod.request_lines(
-    '/dev/gpiochip0',
-    consumer='motor',
-    config={R_EN_LINE: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)}
-)
-l_en = gpiod.request_lines(
-    '/dev/gpiochip0',
-    consumer='motor',
-    config={L_EN_LINE: gpiod.LineSettings(direction=gpiod.line.Direction.OUTPUT)}
-)
+# Function to move motor forward
+def forward(speed=50):
+    GPIO.output(L_EN, GPIO.HIGH)
+    GPIO.output(R_EN, GPIO.LOW)
+    lpwm_pwm.ChangeDutyCycle(speed)
+    rpwm_pwm.ChangeDutyCycle(0)
 
-# Export and init PWM
-pwm_export(PWM_CHIP_RPWM, PWM_CHAN_RPWM)
-pwm_export(PWM_CHIP_LPWM, PWM_CHAN_LPWM)
-pwm_write(PWM_CHIP_RPWM, PWM_CHAN_RPWM, PERIOD_NS, 0, enable=1)
-pwm_write(PWM_CHIP_LPWM, PWM_CHAN_LPWM, PERIOD_NS, 0, enable=1)
+# Function to move motor backward
+def backward(speed=50):
+    GPIO.output(L_EN, GPIO.LOW)
+    GPIO.output(R_EN, GPIO.HIGH)
+    lpwm_pwm.ChangeDutyCycle(0)
+    rpwm_pwm.ChangeDutyCycle(speed)
 
-def spin_motor(voltage, ms, direction="forward"):
-    duty = max(0.0, min(1.0, voltage))
+# Function to stop motor
+def stop():
+    GPIO.output(L_EN, GPIO.LOW)
+    GPIO.output(R_EN, GPIO.LOW)
+    lpwm_pwm.ChangeDutyCycle(0)
+    rpwm_pwm.ChangeDutyCycle(0)
 
-    r_en.set_value(R_EN_LINE, gpiod.line.Value.ACTIVE)
-    l_en.set_value(L_EN_LINE, gpiod.line.Value.ACTIVE)
-
-    if direction == "forward":
-        pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, duty)
-        pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, 0)
-    elif direction == "backward":
-        pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, 0)
-        pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, duty)
-
-    time.sleep(ms / 1000.0)
-
-    pwm_set_duty(PWM_CHIP_RPWM, PWM_CHAN_RPWM, 0)
-    pwm_set_duty(PWM_CHIP_LPWM, PWM_CHAN_LPWM, 0)
-    r_en.set_value(R_EN_LINE, gpiod.line.Value.INACTIVE)
-    l_en.set_value(L_EN_LINE, gpiod.line.Value.INACTIVE)
-
-# --- Execute ---
-spin_motor(voltage=0.75, ms=2000, direction="forward")
-
-# Cleanup
-pwm_write(PWM_CHIP_RPWM, PWM_CHAN_RPWM, PERIOD_NS, 0, enable=0)
-pwm_write(PWM_CHIP_LPWM, PWM_CHAN_LPWM, PERIOD_NS, 0, enable=0)
-r_en.set_value(R_EN_LINE, gpiod.line.Value.INACTIVE)
-l_en.set_value(L_EN_LINE, gpiod.line.Value.INACTIVE)
-r_en.release()
-l_en.release()
+# Example usage
+try:
+    print("Motor forward")
+    forward(70)  # 70% speed
+    time.sleep(2)
+    
+    print("Motor backward")
+    backward(50)  # 50% speed
+    time.sleep(2)
+    
+    print("Stop motor")
+    stop()
+    
+finally:
+    rpwm_pwm.stop()
+    lpwm_pwm.stop()
+    GPIO.cleanup()
